@@ -1,694 +1,878 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import Image from "next/image";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Switch } from "@/components/ui/switch"
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
 import {
-  Plus,
-  Search,
-  Filter,
-  MoreHorizontal,
-  Eye,
-  Edit,
   Trash2,
-  Upload,
-  DollarSign,
-  Clock,
-  Users,
-  ChefHat,
-  Flame,
-  Leaf,
+  Edit2,
+  Search,
   Star,
-  TrendingUp,
-  Package,
-} from "lucide-react"
-import Image from "next/image"
+  MessageSquarePlus,
+  Loader2,
+  MoreHorizontal,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 
+/* ----- shadcn DropdownMenu imports ----- */
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+
+/* ---------------------------
+   Use the provided image path
+   --------------------------- */
+const PLACEHOLDER = "/mnt/data/9d682acb-8886-430e-a4ec-2d631445b689.png";
+
+/* ===========================================================
+   Types
+   =========================================================== */
+interface Review {
+  rating: number;
+  comment: string;
+}
+
+interface MenuItem {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  cost: number;
+  profit: number;
+  prepTime: number;
+  calories: number;
+  ingredients: string[];
+  allergens: string[];
+  vegetarian: boolean;
+  vegan: boolean;
+  glutenFree: boolean;
+  spicy: boolean;
+  popular: boolean;
+  available: boolean;
+  image?: string | null;
+  menuReviews: Review[];
+  rating?: number;
+  reviews?: number;
+}
+
+/* ===========================================================
+   Helper CSS-in-JS strings (keeps Tailwind + small custom CSS)
+   =========================================================== */
+
+/* We'll include a small style block for skeleton shimmer and any custom keyframes */
+const extraStyles = `
+/* shimmer */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* hide native scrollbar for the tabs area */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* subtle glass shine overlay (used on hover) */
+.card-shine:after{
+  content: '';
+  position:absolute;
+  top:-60%;
+  left:-50%;
+  width: 40%;
+  height: 220%;
+  transform: rotate(25deg);
+  background: linear-gradient(120deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+  opacity: 0;
+  transition: all 0.6s ease;
+  pointer-events:none;
+}
+.card-glass:hover .card-shine:after { opacity: 1; left: 120%; transition: all 0.9s cubic-bezier(.2,.9,.2,1); }
+
+/* masonry-like column adjustments for responsive Pinterest look */
+.masonry {
+  column-gap: 1.25rem;
+}
+@media (min-width: 1024px) {
+  .masonry { column-count: 3; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .masonry { column-count: 2; }
+}
+@media (max-width: 767px) {
+  .masonry { column-count: 1; }
+}
+
+/* ensure card items break-inside */
+.masonry-item { break-inside: avoid; margin-bottom: 1.25rem; display: inline-block; width: 100%; }
+
+/* card glass effect (backdrop blur + translucent) */
+.card-glass {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* subtle elevated hover */
+.card-glass:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));
+  transform: translateY(-6px) scale(1.01);
+}
+`;
+
+/* ===========================================================
+   Component
+   =========================================================== */
 export default function MenusPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [isAddItemOpen, setIsAddItemOpen] = useState(false)
+  const router = useRouter();
 
-  // Sample menu items data
-  const menuItems = [
-    {
-      id: "ITEM-001",
-      name: "Grilled Atlantic Salmon",
-      description: "Fresh Atlantic salmon grilled to perfection with herbs and lemon, served with roasted vegetables",
-      price: 28.99,
-      category: "Main Course",
-      image: "/placeholder.svg?height=200&width=300&text=Grilled+Salmon",
-      available: true,
-      popular: true,
-      spicy: false,
-      vegetarian: false,
-      vegan: false,
-      glutenFree: true,
-      prepTime: 15,
-      calories: 420,
-      ingredients: ["Atlantic Salmon", "Herbs", "Lemon", "Olive Oil", "Vegetables"],
-      allergens: ["Fish"],
-      cost: 12.5,
-      profit: 16.49,
-      soldToday: 23,
-      soldThisWeek: 156,
-      rating: 4.8,
-      reviews: 89,
-    },
-    {
-      id: "ITEM-002",
-      name: "Truffle Mushroom Risotto",
-      description: "Creamy arborio rice with wild mushrooms and truffle oil, finished with parmesan cheese",
-      price: 24.99,
-      category: "Main Course",
-      image: "/placeholder.svg?height=200&width=300&text=Truffle+Risotto",
-      available: true,
-      popular: true,
-      spicy: false,
-      vegetarian: true,
-      vegan: false,
-      glutenFree: true,
-      prepTime: 20,
-      calories: 380,
-      ingredients: ["Arborio Rice", "Wild Mushrooms", "Truffle Oil", "Parmesan", "White Wine"],
-      allergens: ["Dairy"],
-      cost: 8.75,
-      profit: 16.24,
-      soldToday: 18,
-      soldThisWeek: 124,
-      rating: 4.6,
-      reviews: 67,
-    },
-    {
-      id: "ITEM-003",
-      name: "Wagyu Beef Tenderloin",
-      description: "Premium wagyu beef tenderloin with red wine jus, roasted garlic mashed potatoes",
-      price: 65.99,
-      category: "Main Course",
-      image: "/placeholder.svg?height=200&width=300&text=Wagyu+Beef",
-      available: true,
-      popular: true,
-      spicy: false,
-      vegetarian: false,
-      vegan: false,
-      glutenFree: true,
-      prepTime: 25,
-      calories: 580,
-      ingredients: ["Wagyu Beef", "Red Wine", "Garlic", "Potatoes", "Herbs"],
-      allergens: ["None"],
-      cost: 28.0,
-      profit: 37.99,
-      soldToday: 12,
-      soldThisWeek: 78,
-      rating: 4.9,
-      reviews: 156,
-    },
-    {
-      id: "ITEM-004",
-      name: "Vegan Buddha Bowl",
-      description: "Quinoa, roasted vegetables, avocado, tahini dressing, and mixed seeds",
-      price: 18.99,
-      category: "Main Course",
-      image: "/placeholder.svg?height=200&width=300&text=Buddha+Bowl",
-      available: true,
-      popular: false,
-      spicy: false,
-      vegetarian: true,
-      vegan: true,
-      glutenFree: true,
-      prepTime: 12,
-      calories: 320,
-      ingredients: ["Quinoa", "Mixed Vegetables", "Avocado", "Tahini", "Seeds"],
-      allergens: ["Sesame"],
-      cost: 6.5,
-      profit: 12.49,
-      soldToday: 8,
-      soldThisWeek: 45,
-      rating: 4.3,
-      reviews: 34,
-    },
-    {
-      id: "ITEM-005",
-      name: "Spicy Tuna Tartare",
-      description: "Fresh tuna with avocado, sesame, spicy mayo, and crispy wonton chips",
-      price: 22.99,
-      category: "Appetizer",
-      image: "/placeholder.svg?height=200&width=300&text=Tuna+Tartare",
-      available: true,
-      popular: true,
-      spicy: true,
-      vegetarian: false,
-      vegan: false,
-      glutenFree: false,
-      prepTime: 10,
-      calories: 280,
-      ingredients: ["Fresh Tuna", "Avocado", "Sesame", "Spicy Mayo", "Wonton"],
-      allergens: ["Fish", "Gluten", "Eggs"],
-      cost: 9.25,
-      profit: 13.74,
-      soldToday: 15,
-      soldThisWeek: 89,
-      rating: 4.7,
-      reviews: 78,
-    },
-    {
-      id: "ITEM-006",
-      name: "Chocolate Lava Cake",
-      description: "Warm chocolate cake with molten center, served with vanilla ice cream",
-      price: 12.99,
-      category: "Dessert",
-      image: "/placeholder.svg?height=200&width=300&text=Lava+Cake",
-      available: false,
-      popular: true,
-      spicy: false,
-      vegetarian: true,
-      vegan: false,
-      glutenFree: false,
-      prepTime: 18,
-      calories: 450,
-      ingredients: ["Dark Chocolate", "Butter", "Eggs", "Sugar", "Vanilla Ice Cream"],
-      allergens: ["Dairy", "Eggs", "Gluten"],
-      cost: 4.25,
-      profit: 8.74,
-      soldToday: 0,
-      soldThisWeek: 67,
-      rating: 4.8,
-      reviews: 123,
-    },
-  ]
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [skeletonLoading, setSkeletonLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const [vegFilter, setVegFilter] = useState<"veg" | "nonveg" | "none">(
+    "none"
+  );
+  const [openDropdownFor, setOpenDropdownFor] = useState<string | null>(null);
 
-  const categories = [
-    { id: "appetizer", name: "Appetizers", count: 8 },
-    { id: "main", name: "Main Courses", count: 15 },
-    { id: "dessert", name: "Desserts", count: 6 },
-    { id: "beverage", name: "Beverages", count: 12 },
-    { id: "special", name: "Chef's Specials", count: 4 },
-  ]
+  // EDIT MODAL STATE
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
 
-  const getAvailabilityColor = (available: boolean) => {
-    return available ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+  /* infinite scroll */
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const fetchInProgress = useRef(false);
+
+  const CATEGORIES = ["beverage", "appetizer", "main", "special", "dessert"];
+
+  const CATEGORY_BADGES: Record<string, string> = {
+    beverage: "bg-purple-100 text-purple-800",
+    appetizer: "bg-orange-100 text-orange-800",
+    main: "bg-blue-100 text-blue-800",
+    special: "bg-pink-100 text-pink-800",
+    dessert: "bg-indigo-100 text-indigo-800",
+  };
+
+  const EXTRA_BADGES: Record<string, string> = {
+    veg: "bg-green-100 text-green-800",
+    nonveg: "bg-red-100 text-red-800",
+    spicy: "bg-red-200 text-red-900",
+    popular: "bg-yellow-100 text-yellow-800",
+  };
+
+  function getCategoryBadgeClass(cat?: string) {
+    if (!cat) return "bg-gray-100 text-gray-800";
+    const key = cat.toLowerCase();
+    return CATEGORY_BADGES[key] ?? "bg-gray-100 text-gray-800";
   }
 
-  const getCategoryColor = (category: string) => {
-    switch (category.toLowerCase()) {
-      case "appetizer":
-        return "bg-blue-100 text-blue-800"
-      case "main course":
-        return "bg-purple-100 text-purple-800"
-      case "dessert":
-        return "bg-pink-100 text-pink-800"
-      case "beverage":
-        return "bg-cyan-100 text-cyan-800"
-      default:
-        return "bg-gray-100 text-gray-800"
+  function getExtraBadgeClass(type: "veg" | "nonveg" | "spicy" | "popular") {
+    return EXTRA_BADGES[type] ?? "bg-gray-100 text-gray-800";
+  }
+
+  /* ===========================================================
+     Fetch items (supports pagination: /api/menuItem?page=n)
+     If your backend doesn't support page param, it will gracefully
+     fallback to single response and paginate client-side.
+     =========================================================== */
+  const loadItems = useCallback(
+    async (opts?: { page?: number; replace?: boolean }) => {
+      const p = opts?.page ?? 1;
+      if (fetchInProgress.current) return;
+      fetchInProgress.current = true;
+
+      try {
+        if (p === 1) {
+          setLoading(true);
+          setSkeletonLoading(true);
+        }
+
+        const res = await fetch(`/api/menuItem?page=${p}`);
+        if (!res.ok) {
+          // fallback: try without page param
+          const r2 = await fetch("/api/menuItem");
+          if (!r2.ok) throw new Error("Failed to load");
+          const itemsAll = await r2.json();
+          // simulate pagination client-side
+          const pageSize = 12;
+          const start = (p - 1) * pageSize;
+          const chunk = itemsAll.slice(start, start + pageSize);
+          if (chunk.length === 0) setHasMore(false);
+
+          const processedChunk = chunk.map((it: MenuItem) => {
+            const reviews = it.menuReviews || [];
+            const avg =
+              reviews.length > 0
+                ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                : 0;
+            return {
+              ...it,
+              rating: Number(avg.toFixed(1)),
+              reviews: reviews.length,
+              ingredients: Array.isArray(it.ingredients) ? it.ingredients : [],
+              allergens: Array.isArray(it.allergens) ? it.allergens : [],
+            };
+          });
+
+          setMenuItems((prev) => (opts?.replace ? processedChunk : [...prev, ...processedChunk]));
+        } else {
+          const items = await res.json();
+          // if API returns { items: [...], hasMore: true/false } handle both formats
+          let payload: any[] = [];
+          let serverHasMore = true;
+
+          if (Array.isArray(items)) {
+            payload = items;
+            // infer hasMore if less than typical page size
+            serverHasMore = items.length >= 12;
+          } else if (items && Array.isArray(items.items)) {
+            payload = items.items;
+            serverHasMore = items.hasMore ?? payload.length >= 12;
+          } else {
+            payload = [];
+            serverHasMore = false;
+          }
+
+          const processed = payload.map((it: MenuItem) => {
+            const reviews = it.menuReviews || [];
+            const avg =
+              reviews.length > 0
+                ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+                : 0;
+
+            return {
+              ...it,
+              rating: Number(avg.toFixed(1)),
+              reviews: reviews.length,
+              ingredients: Array.isArray(it.ingredients) ? it.ingredients : [],
+              allergens: Array.isArray(it.allergens) ? it.allergens : [],
+            };
+          });
+
+          setMenuItems((prev) => (opts?.replace ? processed : [...prev, ...processed]));
+          setHasMore(serverHasMore);
+        }
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: "Error loading menu",
+          description: "Please try again",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+        // give a little time to show skeleton shimmer nicely
+        setTimeout(() => setSkeletonLoading(false), 300);
+        fetchInProgress.current = false;
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    // initial load
+    loadItems({ page: 1, replace: true });
+    setPage(1);
+  }, [loadItems]);
+
+  /* infinite scroll observer */
+  useEffect(() => {
+    if (!sentinelRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && hasMore && !fetchInProgress.current) {
+            const next = page + 1;
+            setPage(next);
+            loadItems({ page: next });
+          }
+        });
+      },
+      { root: null, rootMargin: "300px", threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [page, hasMore, loadItems]);
+
+  /* ===========================================================
+     Filtering
+     =========================================================== */
+  const filtered = menuItems.filter((item) => {
+    const matchSearch = item.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+
+    const matchCategory =
+      activeTab === "all" ||
+      item.category.toLowerCase() === activeTab.toLowerCase();
+
+    const matchVeg =
+      vegFilter === "none"
+        ? true
+        : vegFilter === "veg"
+        ? item.vegetarian
+        : !item.vegetarian;
+
+    return matchSearch && matchCategory && matchVeg;
+  });
+
+  /* ===========================================================
+     Staggered animation configuration (framer-motion)
+     =========================================================== */
+  const containerVariants = {
+    visible: {
+      transition: {
+        staggerChildren: 0.06,
+      },
+    },
+  };
+
+  // each card will have a slight random offset for "fall" feel
+  function cardMotion(seed: number) {
+    const tilt = (seed % 3) - 1; // -1,0,1
+    const yStart = 24 + (seed % 5) * 6; // 24..48
+    return {
+      hidden: { opacity: 0, y: yStart, rotate: tilt * 2, scale: 0.98 },
+      visible: { opacity: 1, y: 0, rotate: 0, scale: 1, transition: { type: "spring", stiffness: 280, damping: 26 } },
+      exit: { opacity: 0, y: 8, transition: { duration: 0.18 } },
+    };
+  }
+
+  /* ===========================================================
+     Stars renderer
+     =========================================================== */
+  function renderStars(rating = 0) {
+    return (
+      <div className="flex gap-0.5 mt-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`w-4 h-4 ${rating >= star ? "text-yellow-500 fill-yellow-500" : "text-gray-300"}`}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  /* ===========================================================
+     Delete handler
+     =========================================================== */
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this item?")) return;
+
+    try {
+      const res = await fetch(`/api/menuItem/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+
+      setMenuItems((prev) => prev.filter((it) => it.id !== id));
+      toast({ title: "Deleted", description: "Item removed." });
+    } catch (err) {
+      toast({ title: "Error", description: "Delete failed" });
     }
   }
 
-  const filteredItems = menuItems.filter(
-    (item) =>
-      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
+  const TABS = ["all", "beverage", "appetizer", "special", "main", "dessert"];
 
-  const availableItems = menuItems.filter((item) => item.available).length
-  const totalItems = menuItems.length
-  const popularItems = menuItems.filter((item) => item.popular).length
-  const averagePrice = menuItems.reduce((sum, item) => sum + item.price, 0) / menuItems.length
+  /* ===========================================================
+     EDIT SAVE handler (keeps behavior from your original)
+     =========================================================== */
+  async function saveEdit() {
+    if (!editingItem) return;
+    const payload = {
+      name: editingItem.name,
+      description: editingItem.description,
+      price: editingItem.price,
+      category: editingItem.category,
+      image: editingItem.image,
+      vegetarian: editingItem.vegetarian,
+      vegan: editingItem.vegan,
+      glutenFree: editingItem.glutenFree,
+      spicy: editingItem.spicy,
+      popular: editingItem.popular,
+      available: editingItem.available,
+      prepTime: editingItem.prepTime,
+      calories: editingItem.calories,
+      ingredients: editingItem.ingredients,
+      allergens: editingItem.allergens,
+      cost: editingItem.cost,
+      profit: editingItem.profit,
+    };
 
+    try {
+      const res = await fetch(`/api/menuItem/${editingItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        toast({
+          title: "Updated",
+          description: "Menu updated successfully.",
+        });
+
+        setMenuItems((prev) =>
+          prev.map((it) => (it.id === editingItem.id ? { ...it, ...payload } : it))
+        );
+
+        setIsModalOpen(false);
+      } else {
+        const txt = await res.text();
+        console.error("Update failed", txt);
+        toast({
+          title: "Error",
+          description: "Update failed",
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Error",
+        description: "Update failed",
+      });
+    }
+  }
+
+  /* ===========================================================
+     Render
+     =========================================================== */
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
+      <style dangerouslySetInnerHTML={{ __html: extraStyles }} />
+
+      {/* HEADER */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Menu Management</h1>
-          <p className="text-gray-600">Manage your restaurant menu items and categories</p>
+        <h1 className="text-3xl font-bold">Menus</h1>
+
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label className="text-sm">Veg</Label>
+            <select
+              value={vegFilter}
+              onChange={(e) =>
+                setVegFilter(e.target.value as "veg" | "nonveg" | "none")
+              }
+              className="border rounded px-2 py-1 text-sm"
+            >
+              <option value="none">All</option>
+              <option value="veg">Veg</option>
+              <option value="nonveg">Non-Veg</option>
+            </select>
+          </div>
+
+          <Button
+            className="bg-orange-600 text-white"
+            onClick={() => router.push("/dashboard/menus/add")}
+          >
+            + Add Menu
+          </Button>
         </div>
-        <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-600 hover:bg-orange-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Menu Item
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Add New Menu Item</DialogTitle>
-              <DialogDescription>Create a new menu item with all the necessary details</DialogDescription>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="itemName">Item Name</Label>
-                <Input id="itemName" placeholder="Enter item name" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price">Price ($)</Label>
-                <Input id="price" type="number" step="0.01" placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cost">Cost ($)</Label>
-                <Input id="cost" type="number" step="0.01" placeholder="0.00" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="prepTime">Prep Time (minutes)</Label>
-                <Input id="prepTime" type="number" placeholder="15" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="calories">Calories</Label>
-                <Input id="calories" type="number" placeholder="350" />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Detailed description of the menu item..."
-                  className="min-h-[80px]"
-                />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="ingredients">Ingredients (comma separated)</Label>
-                <Textarea
-                  id="ingredients"
-                  placeholder="Ingredient 1, Ingredient 2, Ingredient 3..."
-                  className="min-h-[60px]"
-                />
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="allergens">Allergens (comma separated)</Label>
-                <Input id="allergens" placeholder="Dairy, Gluten, Nuts..." />
-              </div>
-              <div className="col-span-2 space-y-4">
-                <Label>Dietary Options</Label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Switch id="vegetarian" />
-                    <Label htmlFor="vegetarian">Vegetarian</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="vegan" />
-                    <Label htmlFor="vegan">Vegan</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="glutenFree" />
-                    <Label htmlFor="glutenFree">Gluten Free</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="spicy" />
-                    <Label htmlFor="spicy">Spicy</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="popular" />
-                    <Label htmlFor="popular">Popular Item</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Switch id="available" defaultChecked />
-                    <Label htmlFor="available">Available</Label>
-                  </div>
-                </div>
-              </div>
-              <div className="col-span-2 space-y-2">
-                <Label htmlFor="image">Item Image</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">Click to upload or drag and drop</p>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 5MB</p>
-                </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsAddItemOpen(false)}>
-                Cancel
-              </Button>
-              <Button className="bg-orange-600 hover:bg-orange-700">Add Menu Item</Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
 
-      {/* Menu Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{totalItems}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Available</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{availableItems}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Popular Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{popularItems}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Avg. Price</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">${averagePrice.toFixed(2)}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Search and Filter */}
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+      {/* SEARCH */}
+      <div className="w-full max-w-md">
+        <div className="relative">
+          <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
           <Input
-            placeholder="Search menu items by name, description, or category..."
+            placeholder="Search items..."
+            className="pl-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
           />
         </div>
-        <Button variant="outline">
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
       </div>
 
-      {/* Menu Tabs */}
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all">All Items</TabsTrigger>
-          <TabsTrigger value="available">Available ({availableItems})</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-        </TabsList>
+      {/* CATEGORY TABS */}
+      <div className="flex gap-3 overflow-x-auto no-scrollbar mt-4">
+        {TABS.map((t) => (
+          <button
+            key={t}
+            onClick={() => setActiveTab(t)}
+            className={`px-5 py-2 rounded-full border text-sm transition ${
+              activeTab === t
+                ? "bg-orange-600 text-white border-orange-600 shadow-md"
+                : "bg-white text-gray-700 border-gray-300"
+            }`}
+          >
+            {t === "all" ? "All" : t[0].toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="all">
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredItems.map((item) => (
-              <Card key={item.id} className="overflow-hidden">
-                <div className="relative h-48">
-                  <Image src={item.image || "/placeholder.svg"} alt={item.name} fill className="object-cover" />
-                  <div className="absolute top-3 left-3 flex gap-2">
-                    <Badge className={getAvailabilityColor(item.available)}>
-                      {item.available ? "Available" : "Unavailable"}
-                    </Badge>
-                    {item.popular && (
-                      <Badge className="bg-yellow-100 text-yellow-800">
-                        <Star className="h-3 w-3 mr-1" />
-                        Popular
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="absolute top-3 right-3 flex gap-1">
-                    {item.spicy && (
-                      <Badge variant="destructive">
-                        <Flame className="h-3 w-3" />
-                      </Badge>
-                    )}
-                    {item.vegetarian && (
-                      <Badge className="bg-green-100 text-green-800">
-                        <Leaf className="h-3 w-3" />
-                      </Badge>
-                    )}
-                    {item.vegan && <Badge className="bg-green-200 text-green-900">V</Badge>}
-                    {item.glutenFree && <Badge className="bg-blue-100 text-blue-800">GF</Badge>}
-                  </div>
-                </div>
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{item.name}</CardTitle>
-                      <Badge className={getCategoryColor(item.category)} variant="outline">
-                        {item.category}
-                      </Badge>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-orange-600">${item.price}</div>
-                      <div className="text-sm text-gray-500">Cost: ${item.cost}</div>
-                    </div>
-                  </div>
-                  <CardDescription className="text-sm line-clamp-2">{item.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4 text-gray-400" />
-                          <span>{item.prepTime} min</span>
+      {/* GRID / MASONRY / SKELETON */}
+      {loading && skeletonLoading ? (
+        // skeleton shimmer in masonry layout
+        <div className="masonry mt-4">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <div key={idx} className="masonry-item rounded-lg overflow-hidden">
+              <div className="w-full h-56 skeleton rounded-md" />
+              <div className="p-3 space-y-2">
+                <div className="h-4 skeleton rounded w-1/2" />
+                <div className="h-3 skeleton rounded w-3/4" />
+                <div className="h-3 skeleton rounded w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <>
+          <motion.div
+            className="masonry mt-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <AnimatePresence>
+              {filtered.map((item, i) => {
+                const variants = cardMotion(i + (item.id?.length ?? 0));
+                return (
+                  <motion.div
+                    key={item.id}
+                    className="masonry-item"
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    variants={variants}
+                    layout
+                  >
+                    <Card className="overflow-hidden relative transform transition card-glass card-shine group">
+                      {/* IMAGE */}
+                      <div className="relative w-full" style={{ breakInside: "avoid" }}>
+                        <div style={{ position: "relative", width: "100%", paddingBottom: "62%" }}>
+                          <Image
+                            src={item.image || PLACEHOLDER}
+                            alt={item.name}
+                            fill
+                            className="object-cover transition-transform duration-500 group-hover:scale-105"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Package className="h-4 w-4 text-gray-400" />
-                          <span>{item.calories} cal</span>
-                        </div>
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent pointer-events-none" />
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 text-yellow-400 fill-current" />
-                        <span>{item.rating}</span>
-                        <span className="text-gray-500">({item.reviews})</span>
+
+                      {/* DROPDOWN (shadcn DropdownMenu) */}
+                      <div className="absolute top-4 right-4 z-20">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="bg-white p-1 rounded-full border shadow-sm" aria-label="more">
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onSelect={() => {
+                                setEditingItem(item);
+                                setIsModalOpen(true);
+                              }}
+                            >
+                              <Edit2 className="w-4 h-4 mr-2 inline" /> Edit
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onSelect={() => handleDelete(item.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2 inline" /> Delete
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/dashboard/reviews/add?menuItemId=${item.id}`)}
+                              className="border-t"
+                            >
+                              <MessageSquarePlus className="w-4 h-4 mr-2 inline" /> Add Review
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-4 w-4 text-green-500" />
-                          <span>Today: {item.soldToday}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Users className="h-4 w-4 text-blue-500" />
-                          <span>Week: {item.soldThisWeek}</span>
-                        </div>
-                      </div>
-                      <div className="text-green-600 font-medium">Profit: ${item.profit}</div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Edit className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="outline">
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <ChefHat className="mr-2 h-4 w-4" />
-                            Recipe Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <DollarSign className="mr-2 h-4 w-4" />
-                            Pricing History
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Item
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="available">
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Menu Items</CardTitle>
-              <CardDescription>Items currently available for ordering</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Prep Time</TableHead>
-                    <TableHead>Sold Today</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {menuItems
-                    .filter((item) => item.available)
-                    .map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="relative w-12 h-12">
-                              <Image
-                                src={item.image || "/placeholder.svg"}
-                                alt={item.name}
-                                fill
-                                className="object-cover rounded"
-                              />
-                            </div>
-                            <div>
-                              <div className="font-medium">{item.name}</div>
-                              <div className="text-sm text-gray-600 line-clamp-1">{item.description}</div>
-                            </div>
+                      {/* CONTENT */}
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="pr-3">
+                            <CardTitle className="text-lg">{item.name}</CardTitle>
+                            <CardDescription className="line-clamp-2 text-sm text-gray-300">
+                              {item.description}
+                            </CardDescription>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getCategoryColor(item.category)} variant="outline">
+
+                          {/* RATING */}
+                          <div className="flex flex-col items-end ml-2">
+                            <span className="font-medium text-sm text-white">
+                              {(item.rating ?? 0).toFixed(1)}
+                            </span>
+                            {renderStars(item.rating)}
+                            <span className="text-xs text-gray-400">
+                              {item.reviews} reviews
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* BADGES */}
+                        <div className="flex gap-2 flex-wrap mt-3 text-xs">
+                          <Badge
+                            className={`${getCategoryBadgeClass(item.category)} px-2 py-1 rounded-full text-xs`}
+                          >
                             {item.category}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">${item.price}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-gray-400" />
-                            {item.prepTime} min
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3 text-green-500" />
-                            {item.soldToday}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                            {item.rating}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-8 w-8 p-0">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit Item
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Package className="mr-2 h-4 w-4" />
-                                Mark Unavailable
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
-        <TabsContent value="categories">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => (
-              <Card key={category.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-center">
-                    <CardTitle>{category.name}</CardTitle>
-                    <Badge variant="outline">{category.count} items</Badge>
-                  </div>
-                  <CardDescription>Manage items in the {category.name.toLowerCase()} category</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span>Available Items:</span>
-                      <span className="font-medium">
-                        {
-                          menuItems.filter(
-                            (item) =>
-                              item.category.toLowerCase().includes(category.name.toLowerCase().slice(0, -1)) &&
-                              item.available,
-                          ).length
-                        }
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Average Price:</span>
-                      <span className="font-medium">
-                        $
-                        {menuItems
-                          .filter((item) =>
-                            item.category.toLowerCase().includes(category.name.toLowerCase().slice(0, -1)),
-                          )
-                          .reduce((sum, item) => sum + item.price, 0) /
-                          Math.max(
-                            1,
-                            menuItems.filter((item) =>
-                              item.category.toLowerCase().includes(category.name.toLowerCase().slice(0, -1)),
-                            ).length,
-                          ) || 0}
-                      </span>
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Eye className="h-3 w-3 mr-1" />
-                        View Items
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1">
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add Item
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                          <Badge
+                            className={
+                              item.vegetarian
+                                ? `${getExtraBadgeClass("veg")} px-2 py-1 rounded-full text-xs`
+                                : `${getExtraBadgeClass("nonveg")} px-2 py-1 rounded-full text-xs`
+                            }
+                          >
+                            {item.vegetarian ? "Veg" : "Non-Veg"}
+                          </Badge>
+
+                          {item.spicy && (
+                            <Badge
+                              className={`${getExtraBadgeClass("spicy")} px-2 py-1 rounded-full text-xs`}
+                            >
+                              Spicy
+                            </Badge>
+                          )}
+
+                          {item.popular && (
+                            <Badge
+                              className={`${getExtraBadgeClass("popular")} px-2 py-1 rounded-full text-xs`}
+                            >
+                              Popular
+                            </Badge>
+                          )}
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="text-sm">
+                        <div className="flex justify-between items-center">
+                          <p className="text-white">
+                            <strong>Price:</strong> ₹{item.price}
+                          </p>
+                          <p className="text-gray-400">
+                            <strong>Prep:</strong> {item.prepTime} mins
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* sentinel for infinite scroll */}
+          <div ref={sentinelRef} className="flex justify-center mt-6">
+            {hasMore ? (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-md border">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm">Loading more...</span>
+              </div>
+            ) : (
+              <div className="text-sm text-gray-400">No more items</div>
+            )}
           </div>
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
+
+      {/* EDIT MODAL */}
+      <AnimatePresence>
+        {isModalOpen && editingItem && (
+          <motion.div
+            className="fixed inset-0 z-[999] flex items-center justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          >
+            <div
+              className="bg-black/40 absolute inset-0"
+              onClick={() => setIsModalOpen(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="bg-white p-6 rounded-xl shadow-lg w-full max-w-2xl space-y-4 z-20"
+            >
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold">Edit {editingItem.name}</h2>
+                <button
+                  className="text-gray-600 hover:text-gray-900"
+                  onClick={() => setIsModalOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="w-full flex justify-center">
+                  <Image
+                    src={editingItem.image || PLACEHOLDER}
+                    alt="Preview"
+                    width={320}
+                    height={240}
+                    className="rounded-md object-cover shadow"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Name"
+                    value={editingItem.name}
+                    onChange={(e) =>
+                      setEditingItem({ ...editingItem, name: e.target.value })
+                    }
+                  />
+
+                  <Input
+                    placeholder="Description"
+                    value={editingItem.description ?? ""}
+                    onChange={(e) =>
+                      setEditingItem({
+                        ...editingItem,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+
+                  <div>
+                    <Label>Category</Label>
+                    <select
+                      value={editingItem.category}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem, category: e.target.value })
+                      }
+                      className="w-full border rounded p-2"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c[0].toUpperCase() + c.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Input
+                  type="number"
+                  placeholder="Price"
+                  value={editingItem.price}
+                  onChange={(e) =>
+                    setEditingItem({
+                      ...editingItem,
+                      price: Number(e.target.value),
+                    })
+                  }
+                />
+
+                <Input
+                  type="number"
+                  placeholder="Prep Time"
+                  value={editingItem.prepTime ?? 0}
+                  onChange={(e) =>
+                    setEditingItem({
+                      ...editingItem,
+                      prepTime: Number(e.target.value),
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Image URL"
+                  value={editingItem.image ?? ""}
+                  onChange={(e) =>
+                    setEditingItem({ ...editingItem, image: e.target.value })
+                  }
+                />
+              </div>
+
+              {/* toggles */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingItem.vegetarian}
+                    onCheckedChange={(v) =>
+                      setEditingItem({ ...editingItem, vegetarian: Boolean(v) })
+                    }
+                  />
+                  <Label>Vegetarian</Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingItem.spicy}
+                    onCheckedChange={(v) =>
+                      setEditingItem({ ...editingItem, spicy: Boolean(v) })
+                    }
+                  />
+                  <Label>Spicy</Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingItem.popular}
+                    onCheckedChange={(v) =>
+                      setEditingItem({ ...editingItem, popular: Boolean(v) })
+                    }
+                  />
+                  <Label>Popular</Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={editingItem.available}
+                    onCheckedChange={(v) =>
+                      setEditingItem({ ...editingItem, available: Boolean(v) })
+                    }
+                  />
+                  <Label>Available</Label>
+                </div>
+              </div>
+
+              {/* ACTIONS */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+
+                <Button className="bg-orange-600 text-white" onClick={saveEdit}>
+                  Save Changes
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
-  )
+  );
 }

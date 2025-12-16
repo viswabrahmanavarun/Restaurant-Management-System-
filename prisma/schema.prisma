@@ -1,0 +1,322 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+//
+// =========================
+// USER MODEL
+// =========================
+model User {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  staffId  String? @unique
+  name     String
+  email    String @unique
+  password String
+  role     String
+
+  phone     String?
+  gender    String?
+  address   String?
+  image     String?
+  createdAt DateTime? @default(now())
+}
+
+//
+// =========================
+// MENU ITEMS
+// =========================
+model MenuItem {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  description  String?
+  price        Float
+  category     String
+  image        String?
+  available    Boolean      @default(true)
+  popular      Boolean      @default(false)
+  spicy        Boolean      @default(false)
+  vegetarian   Boolean      @default(false)
+  vegan        Boolean      @default(false)
+  glutenFree   Boolean      @default(false)
+  prepTime     Int?
+  calories     Int?
+  ingredients  String[]
+  allergens    String[]
+  cost         Float?
+  profit       Float?
+  soldToday    Int?         @default(0)
+  soldThisWeek Int?         @default(0)
+  rating       Float?       @default(0)   // <-- add this
+  reviews      Int?         @default(0)   // <-- add this
+  menuReviews  Review[]     @relation("MenuItemReviews")
+
+  // ⭐ REQUIRED RELATION (Opposite of OrderItem → menuItem)
+  orderItems   OrderItem[]  @relation("MenuItemOrderItems")
+}
+
+
+//
+// =========================
+// RESERVATIONS
+// =========================
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Reservation {
+  id              String            @id @default(cuid()) @map("_id")
+  customerName    String
+  phone           String
+  email           String?
+  guests          Int
+  date            DateTime
+  time            String
+  table           String
+  status          ReservationStatus @default(PENDING)
+  specialRequests String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+//
+// =========================
+// INVENTORY + SUPPLIERS
+// =========================
+model Inventory {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  category     Category
+  quantity     Float
+  unit         String
+  pricePerUnit Float
+  threshold    Float
+  supplier     String?
+  imageUrl     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum Category {
+  VEGETABLES
+  FRUITS
+  VEG
+  NON_VEG
+}
+
+model Supplier {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  contactPerson String
+  phone         String
+  email         String
+  category      String
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+//
+// =========================
+// ORDER TYPE ENUM (NEW)
+// =========================
+enum OrderType {
+  DINE_IN
+  TAKE_AWAY
+}
+
+//
+// =========================
+// ORDERS
+// =========================
+enum OrderStatus {
+  NEW
+  PLACED
+  IN_QUEUE
+  READY
+  PAYMENT_PENDING
+  COMPLETED
+  CANCELLED
+  REVIEWED
+}
+
+enum KOTStatus {
+  NEW
+  IN_QUEUE
+  READY
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+enum PaymentMode {
+  UPI
+  CreditCard
+  DebitCard
+  Cash
+  NetBanking
+}
+
+model Order {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  orderNumber  String      @unique
+  customerName String
+  tableNumber  String?
+  customerPhone   String?
+  createdAt    DateTime    @default(now())
+
+  totalAmount  Float
+  status       OrderStatus @default(NEW)
+
+  // ⭐ NEW FIELD: strongly typed order type
+  orderType    OrderType   @default(DINE_IN)
+
+  // PAYMENT FIELDS
+  razorpayLinkId     String?
+  razorpayPaymentId  String?
+  razorpaySignature  String?
+  paymentMethod      String?
+  paymentStatus      PaymentStatus @default(PENDING)
+  paymentNotes       Json?
+  subtotal           Float?
+  discount           Float?
+  finalAmount        Float?
+
+  // RELATIONS
+  items    OrderItem[]
+  kots     KOT[]
+  payment  Payment?
+  reviews  Review[]
+  invoices Invoice[] @relation("OrderInvoices")
+}
+
+model OrderItem {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  itemName    String
+  quantity    Int
+  price       Float
+  imageUrl    String?
+
+  // ⭐ Relation to MenuItem
+  menuItemId  String?      @db.ObjectId
+  menuItem    MenuItem?    @relation("MenuItemOrderItems", fields: [menuItemId], references: [id])
+
+  order       Order        @relation(fields: [orderId], references: [id])
+  orderId     String       @db.ObjectId
+
+  kotStatus   KOTStatus    @default(NEW)
+}
+
+
+
+model KOT {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  kotNumber String    @unique
+  status    KOTStatus @default(NEW)
+  createdAt DateTime  @default(now())
+  order     Order     @relation(fields: [orderId], references: [id])
+  orderId   String    @db.ObjectId
+}
+
+//
+// =========================
+// PAYMENT MODEL
+// =========================
+model Payment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  status    PaymentStatus @default(PENDING)
+  amount    Float
+  mode      PaymentMode?
+  razorpayPaymentId  String?
+  razorpayOrderId    String?
+  razorpaySignature  String?
+  paymentLinkId      String?
+  notes              Json?
+  createdAt DateTime @default(now())
+
+  orderId String @unique @db.ObjectId
+  order   Order  @relation(fields: [orderId], references: [id])
+}
+
+//
+// =========================
+// REVIEWS
+// =========================
+model Review {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  customerName String
+  orderId      String?      @db.ObjectId
+  menuItemId   String?      @db.ObjectId
+  rating       Int
+  comment      String
+  createdAt    DateTime     @default(now())
+  status       ReviewStatus @default(PENDING)
+  showOnHome   Boolean      @default(false)
+
+  // Relations
+  order     Order?     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // ⭐ ADD THIS (IMPORTANT)
+  menuItem  MenuItem?  @relation("MenuItemReviews", fields: [menuItemId], references: [id])
+}
+
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  SPAM
+}
+
+//
+// =========================
+// INVOICES
+// =========================
+model Invoice {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceNumber String       @unique
+  customerName  String
+  tableNumber   String?
+  modeOfPayment PaymentMode?
+  subTotal      Float?
+  tax           Float?
+  serviceCharge Float?
+  totalAmount   Float?
+  status        String       @default("MANUAL")
+  createdAt     DateTime     @default(now())
+
+  order   Order?    @relation("OrderInvoices", fields: [orderId], references: [id])
+  orderId String?   @db.ObjectId
+
+  items   InvoiceItem[]
+}
+
+model InvoiceItem {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  itemName  String
+  quantity  Int
+  price     Float
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId String   @db.ObjectId
+}
+
+model Setting {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  key       String   @unique
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
