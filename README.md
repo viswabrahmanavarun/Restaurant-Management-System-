@@ -1,30 +1,31 @@
-# Restaurant management system
+**Restaurant Management System**
+A full-stack web application designed to simplify and automate restaurant operations by managing menus, orders, kitchen workflows, reservations, and customer reviews from a single platform. The system provides real-time updates and role-based dashboards to ensure smooth coordination between admin, kitchen staff, and customers.
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+**Features**
+User authentication and role-based access (Admin, Kitchen, Staff)
+Menu management (add, update, delete food items)
+Order management with real-time status updates
+Kitchen Order Ticket (KOT) workflow
+Reservations management
+Customer reviews and ratings
+Dashboard with order and revenue insights
+Responsive and modern UI
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/swatigupta-7828s-projects/v0-restaurant-management-system)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/miq1kMxUL6L)
+**Tech Stack & Tools Used**
+Frontend
+Next.js
+React
+TypeScript
+Tailwind CSS
+shadcn/ui
+Framer Motion
 
-## Overview
-
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
-
-## Deployment
-
-Your project is live at:
-
-**[https://vercel.com/swatigupta-7828s-projects/v0-restaurant-management-system](https://vercel.com/swatigupta-7828s-projects/v0-restaurant-management-system)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/miq1kMxUL6L](https://v0.dev/chat/projects/miq1kMxUL6L)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+**Backend**
+Node.js
+REST APIs
+Prisma ORM
+**Database**
+MongoDB
+**Tools & DevOps**
+Git & GitHub
+Postman(Thunder Clinet)
