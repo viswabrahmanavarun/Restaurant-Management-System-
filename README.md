@@ -29,3 +29,53 @@ MongoDB
 **Tools & DevOps**
 Git & GitHub
 Postman(Thunder Clinet)
+
+
+
+
+---
+
+## 📸 Application Screenshots
+
+### 🔐 Authentication
+![Login](screenshots/login-page.png)
+
+---
+
+### 📊 Dashboard
+![Main Dashboard](screenshots/main-dashboard.png)
+![Daily Usage](screenshots/daily-usage-1.png)
+
+---
+
+### 🍽️ Menu Management
+![Menu Management](screenshots/menu-management.png)
+![Add Menu](screenshots/add-menu.png)
+![Menu Category](screenshots/menu-category.png)
+
+---
+
+### 👨‍🍳 Staff & Admin
+![Admin Access](screenshots/admin-access.png)
+![Create Staff](screenshots/admin-creating-users.png)
+![Staff Settings](screenshots/admin-staff-settings.png)
+![Staff Dashboard](screenshots/staff-dashboard.png)
+
+---
+
+### 🧾 Orders & Invoices
+![Order Dashboard](screenshots/order-dashboard.png)
+![Invoice](screenshots/invoice.png)
+![Payment](screenshots/public-payment-section.png)
+
+---
+
+### 📅 Reservations
+![Create Reservation](screenshots/creating-reservation.png)
+![Reservation Dashboard](screenshots/reservation-dashboard.png)
+
+---
+
+### 🍳 Kitchen
+![Kitchen Dashboard](screenshots/kitchen-dashboard.png)
+
