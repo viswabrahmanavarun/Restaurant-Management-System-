@@ -31,8 +31,6 @@ Git & GitHub
 Postman(Thunder Clinet)
 
 
----
-
 ## 📸 Application Screenshots
 
 ### 🔐 Authentication
@@ -81,8 +79,5 @@ Postman(Thunder Clinet)
 
 ### 📦 Inventory
 ![Inventory](screenshots/inventory-items.png)
-
-
-
 
 
