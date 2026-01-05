@@ -31,8 +31,6 @@ Git & GitHub
 Postman(Thunder Clinet)
 
 
-
-
 ---
 
 ## 📸 Application Screenshots
@@ -78,4 +76,13 @@ Postman(Thunder Clinet)
 
 ### 🍳 Kitchen
 ![Kitchen Dashboard](screenshots/kitchen-dashboard.png)
+
+---
+
+### 📦 Inventory
+![Inventory](screenshots/inventory-items.png)
+
+
+
+
 
